@@ -655,8 +655,11 @@ const DEFAULT_WEDDING_ITEMS = [
   ['na','Huwelijksreis boeken']
 ];
 
-const BUCKET = "hanvos-trouw-verbouw-sven-2026";
-const KVDB_URL = "https://kvdb.io/" + BUCKET + "/data";
+const JSONBIN_ID = "6a82f06dda38895dfeee79a3";
+const JSONBIN_ACCESS_KEY = "$2a$10$SsYq48xUZk0SVMrBhVbogeCP2zeZgjK9Uqw0z5YpgunCI5YfOgBOW";
+const JSONBIN_URL = "https://api.jsonbin.io/v3/b/" + JSONBIN_ID;
+const JSONBIN_HEADERS_READ = { "X-Access-Key": JSONBIN_ACCESS_KEY };
+const JSONBIN_HEADERS_WRITE = { "Content-Type": "application/json", "X-Access-Key": JSONBIN_ACCESS_KEY };
 const LOCAL_KEY = "trouwverbouw-planner-data";
 let saveTimer = null;
 let lastSavedJSON = "";
@@ -706,21 +709,23 @@ async function loadData(){
   // 2. Then try the shared online copy, and merge in whichever is newer
   //    (so changes made on the other person's device/browser show up too).
   try{
-    const res = await fetch(KVDB_URL, {cache:'no-store'});
+    const res = await fetch(JSONBIN_URL + "/latest", {cache:'no-store', headers: JSONBIN_HEADERS_READ});
     if(res.ok){
-      const txt = await res.text();
-      if(txt && txt.trim().length){
-        const parsed = JSON.parse(txt);
+      const json = await res.json();
+      const parsed = json.record;
+      if(parsed){
         const remoteTime = parsed._updatedAt || 0;
         const localTime = hadLocal ? (data._updatedAt || 0) : -1;
         if(remoteTime >= localTime){
           data = Object.assign(data, parsed);
         }
-        lastSavedJSON = txt;
+        lastSavedJSON = JSON.stringify(parsed);
         renderAll();
       }
+      setSyncStatus('ok');
+    }else{
+      setSyncStatus(hadLocal ? 'local-only' : 'error');
     }
-    setSyncStatus('ok');
   }catch(e){
     setSyncStatus(hadLocal ? 'local-only' : 'error');
   }
@@ -752,24 +757,32 @@ async function saveData(){
   saveLocal();
   const json = JSON.stringify(data);
   try{
-    await fetch(KVDB_URL, {method:'PUT', body: json});
-    lastSavedJSON = json;
-    setSyncStatus('ok');
+    const res = await fetch(JSONBIN_URL, {method:'PUT', headers: JSONBIN_HEADERS_WRITE, body: json});
+    if(res.ok){
+      lastSavedJSON = json;
+      setSyncStatus('ok');
+    }else{
+      setSyncStatus('local-only');
+    }
   }catch(e){
     setSyncStatus('local-only');
   }
 }
 
-// poll for updates from partner every 5s (only when not actively typing)
+// Poll for updates from your partner's browser every 25s — only when the
+// tab is actually visible/focused and nobody's mid-typing, to stay well
+// within JSONBin's free-tier request quota.
 let typing = false;
-setInterval(async ()=>{
+async function pollForUpdates(){
   if(typing) return;
+  if(document.visibilityState !== 'visible') return;
   try{
-    const res = await fetch(KVDB_URL, {cache:'no-store'});
+    const res = await fetch(JSONBIN_URL + "/latest", {cache:'no-store', headers: JSONBIN_HEADERS_READ});
     if(res.ok){
-      const txt = await res.text();
-      if(txt && txt.trim().length && txt !== lastSavedJSON){
-        const parsed = JSON.parse(txt);
+      const json = await res.json();
+      const parsed = json.record;
+      const txt = parsed ? JSON.stringify(parsed) : null;
+      if(txt && txt !== lastSavedJSON){
         // only take the remote version if it's actually newer than ours,
         // so we never clobber a not-yet-synced local change
         if((parsed._updatedAt||0) >= (data._updatedAt||0)){
@@ -779,10 +792,14 @@ setInterval(async ()=>{
           saveLocal();
         }
       }
+      setSyncStatus('ok');
     }
-    setSyncStatus('ok');
   }catch(e){ setSyncStatus('local-only'); }
-}, 5000);
+}
+setInterval(pollForUpdates, 25000);
+// also check right away when you switch back to this tab, so you don't
+// have to wait up to 25s to see a partner's change
+document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState === 'visible') pollForUpdates(); });
 
 /* ---------- Rendering ---------- */
 function renderAll(){
