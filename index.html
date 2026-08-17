@@ -406,6 +406,17 @@
     padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
   }
   .attach-hint{ font-size:11px; color:var(--muted); margin-top:6px; }
+  .item-note-label{
+    font-size:11px; font-weight:700; color:var(--muted); text-transform:uppercase; letter-spacing:.04em;
+    margin-bottom:5px; display:block;
+  }
+  .item-note{
+    width:100%; min-height:54px; border:1px solid var(--line); border-radius:8px;
+    padding:7px 9px; font-size:13px; font-family:inherit; resize:vertical;
+    background:var(--card); margin-bottom:10px;
+  }
+  .item-note:focus{ outline:none; border-color:var(--accent); }
+  .attach-btn.has-note{ opacity:.9; }
 
   .timeline-item input[type=time]{
     border:1px solid var(--line);
@@ -795,6 +806,7 @@ function attachChipHtml(kind,itemId,att){
 
 function checklistItemHtml(kind,item){
   const attachments = item.attachments || [];
+  const hasNote = !!(item.note && item.note.trim());
   const panelOpenKey = kind + ':' + item.id;
   const isOpen = openAttachPanels.has(panelOpenKey);
   const fileInputId = 'file-' + kind + '-' + item.id;
@@ -802,9 +814,11 @@ function checklistItemHtml(kind,item){
     <li class="${item.done?'done':''}">
       <input type="checkbox" ${item.done?'checked':''} onchange="toggleItem('${kind}','${item.id}')">
       <label onclick="toggleItem('${kind}','${item.id}')">${escapeHtml(item.text)}</label>
-      <button class="attach-btn ${attachments.length?'has-items':''}" title="Foto's / documenten" onclick="toggleAttachPanel('${kind}','${item.id}')">📎${attachments.length?` ${attachments.length}`:''}</button>
+      <button class="attach-btn ${(attachments.length||hasNote)?'has-items':''}" title="Notitie, foto's en documenten" onclick="toggleAttachPanel('${kind}','${item.id}')">${hasNote?'📝':'📎'}${attachments.length?` ${attachments.length}`:''}</button>
       <button class="del-btn" onclick="removeItem('${kind}','${item.id}')">✕</button>
       <div class="attach-panel ${isOpen?'open':''}" id="panel-${panelOpenKey.replace(':','-')}">
+        <span class="item-note-label">Notitie</span>
+        <textarea class="item-note" placeholder="Schrijf hier bijv. contactgegevens, prijsafspraken, ideeën..." onchange="updateItemNote('${kind}','${item.id}',this.value)">${escapeHtml(item.note||'')}</textarea>
         <div class="attach-chips">${attachments.map(a=>attachChipHtml(kind,item.id,a)).join('') || ''}</div>
         <div class="attach-add-row">
           <label class="file-btn">📷 Foto toevoegen<input type="file" accept="image/*" style="display:none" id="${fileInputId}" onchange="handleImageUpload('${kind}','${item.id}',this)"></label>
@@ -814,6 +828,15 @@ function checklistItemHtml(kind,item){
         <div class="attach-hint">Foto's worden automatisch verkleind. Voor grote bestanden liever een gedeelde link.</div>
       </div>
     </li>`;
+}
+
+function updateItemNote(kind,id,value){
+  const list = kind==='wedding' ? data.wedding : data.reno;
+  const item = list.find(i=>i.id===id);
+  if(!item) return;
+  item.note = value;
+  renderChecklist(kind);
+  scheduleSave();
 }
 
 function renderChecklist(kind){
