@@ -420,7 +420,15 @@
 
   /* guests */
   .table-scroll{ overflow-x:auto; }
-  .table-scroll table{ min-width:560px; }
+  .table-scroll table{ min-width:720px; }
+  .guests-filter{ display:flex; gap:8px; margin-bottom:10px; flex-wrap:wrap; }
+  .guests-filter .filter-btn{
+    border:1px solid var(--line); border-radius:20px; padding:6px 14px; font-size:13px;
+    background:var(--card); color:var(--muted); cursor:pointer;
+  }
+  .guests-filter .filter-btn.active{
+    background:var(--accent); color:#fff; border-color:var(--accent);
+  }
   .guests-summary{
     display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;
   }
@@ -524,9 +532,14 @@
     <div class="card">
       <h2>👥 Gastenlijst <span class="count" id="guests-count"></span></h2>
       <div class="guests-summary" id="guests-summary"></div>
+      <div class="guests-filter" id="guests-filter">
+        <button type="button" class="filter-btn active" data-daypart="alle" onclick="setGuestFilter('alle')">Alle gasten</button>
+        <button type="button" class="filter-btn" data-daypart="dag" onclick="setGuestFilter('dag')">Hele dag</button>
+        <button type="button" class="filter-btn" data-daypart="avond" onclick="setGuestFilter('avond')">Alleen avond</button>
+      </div>
       <div class="table-scroll">
       <table>
-        <thead><tr><th>Naam</th><th>Aantal</th><th>Categorie</th><th>RSVP</th><th>Notities</th><th></th></tr></thead>
+        <thead><tr><th>Naam</th><th>Adres</th><th>Aantal</th><th>Categorie</th><th>Moment</th><th>RSVP</th><th>Notities</th><th></th></tr></thead>
         <tbody id="guests-body"></tbody>
       </table>
       </div>
@@ -622,7 +635,7 @@ let data = {
   budgetWedding: [],  // {id, name, est, real, who}
   budgetReno: [],
   timeline: [],       // {id, date, time, text, tag}
-  guests: [],         // {id, name, count, category, rsvp, notes}
+  guests: [],         // {id, name, address, count, category, dayPart, rsvp, notes}
   notes: "",
   seeded: false
 };
@@ -633,6 +646,10 @@ const RSVP_OPTIONS = [
   {value: "invited", label: "Uitgenodigd"},
   {value: "confirmed", label: "Komt"},
   {value: "declined", label: "Komt niet"}
+];
+const DAYPART_OPTIONS = [
+  {value: "dag", label: "Hele dag"},
+  {value: "avond", label: "Alleen avond"}
 ];
 
 /* ---------- Wedding checklist categories ---------- */
@@ -1049,21 +1066,36 @@ function renderTimeline(){
 }
 
 /* ---------- Guests ---------- */
+let guestFilter = 'alle';
+function setGuestFilter(daypart){
+  guestFilter = daypart;
+  document.querySelectorAll('#guests-filter .filter-btn').forEach(b=>{
+    b.classList.toggle('active', b.dataset.daypart === daypart);
+  });
+  renderGuests();
+}
 function renderGuests(){
   const body = document.getElementById('guests-body');
   const countEl = document.getElementById('guests-count');
-  const list = data.guests || [];
-  countEl.textContent = list.length ? `${list.length} genodigd(en)` : '';
+  const fullList = data.guests || [];
+  const list = guestFilter === 'alle' ? fullList : fullList.filter(g => (g.dayPart||'dag') === guestFilter);
+  countEl.textContent = fullList.length ? `${fullList.length} genodigd(en)` : '';
   if(!list.length){
-    body.innerHTML = '<tr><td colspan="6" class="empty-state">Nog geen gasten toegevoegd.</td></tr>';
+    body.innerHTML = '<tr><td colspan="8" class="empty-state">Nog geen gasten toegevoegd.</td></tr>';
   }else{
     body.innerHTML = list.map(g=>`
       <tr>
         <td><input type="text" value="${escapeAttr(g.name)}" onchange="updateGuestField('${g.id}','name',this.value)"></td>
+        <td><input type="text" value="${escapeAttr(g.address||'')}" placeholder="Straat, plaats..." onchange="updateGuestField('${g.id}','address',this.value)"></td>
         <td><input type="number" class="guest-count" min="1" value="${g.count||1}" onchange="updateGuestField('${g.id}','count',this.value)"></td>
         <td>
           <select onchange="updateGuestField('${g.id}','category',this.value)">
             ${GUEST_CATEGORIES.map(c=>`<option value="${c}" ${g.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <select onchange="updateGuestField('${g.id}','dayPart',this.value)">
+            ${DAYPART_OPTIONS.map(o=>`<option value="${o.value}" ${(g.dayPart||'dag')===o.value?'selected':''}>${o.label}</option>`).join('')}
           </select>
         </td>
         <td>
@@ -1077,17 +1109,21 @@ function renderGuests(){
     `).join('');
   }
 
-  const totalGuests = list.length;
-  const totalPeople = list.reduce((s,g)=> s + (Number(g.count)||1), 0);
-  const confirmed = list.filter(g=>g.rsvp==='confirmed');
+  const totalGuests = fullList.length;
+  const totalPeople = fullList.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const confirmed = fullList.filter(g=>g.rsvp==='confirmed');
   const confirmedPeople = confirmed.reduce((s,g)=> s + (Number(g.count)||1), 0);
-  const declined = list.filter(g=>g.rsvp==='declined').length;
-  const pending = list.filter(g=>!g.rsvp || g.rsvp==='onbekend' || g.rsvp==='invited').length;
+  const declined = fullList.filter(g=>g.rsvp==='declined').length;
+  const pending = fullList.filter(g=>!g.rsvp || g.rsvp==='onbekend' || g.rsvp==='invited').length;
+  const dagPeople = fullList.filter(g=>(g.dayPart||'dag')==='dag').reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const avondPeople = fullList.filter(g=>(g.dayPart||'dag')==='avond').reduce((s,g)=> s + (Number(g.count)||1), 0);
   document.getElementById('guests-summary').innerHTML = `
     <div class="stat"><b>${totalGuests}</b> genodigden (<b>${totalPeople}</b> personen)</div>
     <div class="stat"><b>${confirmed.length}</b> komt (<b>${confirmedPeople}</b> personen)</div>
     <div class="stat"><b>${declined}</b> komt niet</div>
     <div class="stat"><b>${pending}</b> nog geen reactie</div>
+    <div class="stat"><b>${dagPeople}</b> hele dag</div>
+    <div class="stat"><b>${avondPeople}</b> alleen avond</div>
   `;
 }
 
@@ -1096,7 +1132,7 @@ function addGuest(){
   const val = input.value.trim();
   if(!val) return;
   if(!data.guests) data.guests = [];
-  data.guests.push({id: uid(), name: val, count: 1, category: 'Familie', rsvp: 'onbekend', notes: ''});
+  data.guests.push({id: uid(), name: val, address: '', count: 1, category: 'Familie', dayPart: 'dag', rsvp: 'onbekend', notes: ''});
   input.value = '';
   renderAll();
   scheduleSave();
@@ -1129,9 +1165,12 @@ function renderOverview(){
   const gTotalPeople = gList.reduce((s,g)=> s + (Number(g.count)||1), 0);
   const gConfirmed = gList.filter(g=>g.rsvp==='confirmed');
   const gConfirmedPeople = gConfirmed.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const gDagPeople = gList.filter(g=>(g.dayPart||'dag')==='dag').reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const gAvondPeople = gList.filter(g=>(g.dayPart||'dag')==='avond').reduce((s,g)=> s + (Number(g.count)||1), 0);
   document.getElementById('ov-guests-summary').innerHTML = gList.length ? `
     <div class="stat"><b>${gList.length}</b> genodigden (<b>${gTotalPeople}</b> personen)</div>
     <div class="stat"><b>${gConfirmed.length}</b> komt (<b>${gConfirmedPeople}</b> personen)</div>
+    <div class="stat"><b>${gDagPeople}</b> hele dag / <b>${gAvondPeople}</b> avond</div>
   ` : '<div class="empty-state">Nog geen gasten toegevoegd.</div>';
 
   const totalEst = sumBudget('est');
