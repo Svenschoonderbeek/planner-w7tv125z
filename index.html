@@ -418,6 +418,26 @@
   .item-note:focus{ outline:none; border-color:var(--accent); }
   .attach-btn.has-note{ opacity:.9; }
 
+  /* guests */
+  .table-scroll{ overflow-x:auto; }
+  .table-scroll table{ min-width:560px; }
+  .guests-summary{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;
+  }
+  .guests-summary .stat{
+    background:var(--bg); border:1px solid var(--line); border-radius:8px;
+    padding:6px 12px; font-size:12.5px; color:var(--muted);
+  }
+  .guests-summary .stat b{ color:var(--ink); font-size:14px; }
+  select.rsvp-select{
+    border:1px solid var(--line); border-radius:7px; padding:5px 6px; font-size:12.5px;
+    background:var(--card); color:var(--ink);
+  }
+  select.rsvp-select.rsvp-confirmed{ color:var(--green); font-weight:700; }
+  select.rsvp-select.rsvp-declined{ color:var(--red); font-weight:700; }
+  select.rsvp-select.rsvp-invited{ color:var(--amber); font-weight:700; }
+  td input[type=number].guest-count{ width:56px; }
+
   .timeline-item input[type=time]{
     border:1px solid var(--line);
     border-radius:6px;
@@ -450,6 +470,7 @@
 <div class="tabs">
   <button class="tab-btn active" data-tab="overzicht">Overzicht</button>
   <button class="tab-btn" data-tab="trouwen">Trouwen</button>
+  <button class="tab-btn" data-tab="gasten">Gastenlijst</button>
   <button class="tab-btn" data-tab="verbouwen">Verbouwen</button>
   <button class="tab-btn" data-tab="budget">Budget</button>
   <button class="tab-btn" data-tab="planning">Planning</button>
@@ -471,6 +492,10 @@
       </div>
     </div>
     <div class="card">
+      <h2>👥 Gastenlijst</h2>
+      <div class="guests-summary" id="ov-guests-summary"></div>
+    </div>
+    <div class="card">
       <h2>💶 Budget totaal</h2>
       <div class="budget-bar-wrap"><div class="budget-bar" id="ov-budget-bar"></div></div>
       <div class="budget-caption"><span id="ov-budget-spent"></span><span id="ov-budget-total"></span></div>
@@ -490,6 +515,24 @@
         <input type="text" id="wed-input" placeholder="Nieuwe taak toevoegen (bijv. locatie boeken)...">
         <select class="cat-select" id="wed-cat-select"></select>
         <button onclick="addItem('wedding')">Toevoegen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- GASTENLIJST -->
+  <section class="panel" id="panel-gasten">
+    <div class="card">
+      <h2>👥 Gastenlijst <span class="count" id="guests-count"></span></h2>
+      <div class="guests-summary" id="guests-summary"></div>
+      <div class="table-scroll">
+      <table>
+        <thead><tr><th>Naam</th><th>Aantal</th><th>Categorie</th><th>RSVP</th><th>Notities</th><th></th></tr></thead>
+        <tbody id="guests-body"></tbody>
+      </table>
+      </div>
+      <div class="add-row">
+        <input type="text" id="guest-input" placeholder="Naam van gast(en)...">
+        <button onclick="addGuest()">Toevoegen</button>
       </div>
     </div>
   </section>
@@ -579,9 +622,18 @@ let data = {
   budgetWedding: [],  // {id, name, est, real, who}
   budgetReno: [],
   timeline: [],       // {id, date, time, text, tag}
+  guests: [],         // {id, name, count, category, rsvp, notes}
   notes: "",
   seeded: false
 };
+
+const GUEST_CATEGORIES = ["Familie", "Vrienden", "Werk", "Overig"];
+const RSVP_OPTIONS = [
+  {value: "onbekend", label: "Nog niet gevraagd"},
+  {value: "invited", label: "Uitgenodigd"},
+  {value: "confirmed", label: "Komt"},
+  {value: "declined", label: "Komt niet"}
+];
 
 /* ---------- Wedding checklist categories ---------- */
 const CATEGORIES = [
@@ -808,6 +860,7 @@ function renderAll(){
   renderBudget('wedding');
   renderBudget('reno');
   renderTimeline();
+  renderGuests();
   renderOverview();
   document.getElementById('notes').value = data.notes || "";
 }
@@ -995,6 +1048,72 @@ function renderTimeline(){
   });
 }
 
+/* ---------- Guests ---------- */
+function renderGuests(){
+  const body = document.getElementById('guests-body');
+  const countEl = document.getElementById('guests-count');
+  const list = data.guests || [];
+  countEl.textContent = list.length ? `${list.length} genodigd(en)` : '';
+  if(!list.length){
+    body.innerHTML = '<tr><td colspan="6" class="empty-state">Nog geen gasten toegevoegd.</td></tr>';
+  }else{
+    body.innerHTML = list.map(g=>`
+      <tr>
+        <td><input type="text" value="${escapeAttr(g.name)}" onchange="updateGuestField('${g.id}','name',this.value)"></td>
+        <td><input type="number" class="guest-count" min="1" value="${g.count||1}" onchange="updateGuestField('${g.id}','count',this.value)"></td>
+        <td>
+          <select onchange="updateGuestField('${g.id}','category',this.value)">
+            ${GUEST_CATEGORIES.map(c=>`<option value="${c}" ${g.category===c?'selected':''}>${c}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <select class="rsvp-select rsvp-${g.rsvp==='confirmed'?'confirmed':g.rsvp==='declined'?'declined':g.rsvp==='invited'?'invited':''}" onchange="updateGuestField('${g.id}','rsvp',this.value)">
+            ${RSVP_OPTIONS.map(o=>`<option value="${o.value}" ${g.rsvp===o.value?'selected':''}>${o.label}</option>`).join('')}
+          </select>
+        </td>
+        <td><input type="text" value="${escapeAttr(g.notes||'')}" placeholder="allergie, dieet..." onchange="updateGuestField('${g.id}','notes',this.value)"></td>
+        <td><button class="del-btn" onclick="removeGuest('${g.id}')">✕</button></td>
+      </tr>
+    `).join('');
+  }
+
+  const totalGuests = list.length;
+  const totalPeople = list.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const confirmed = list.filter(g=>g.rsvp==='confirmed');
+  const confirmedPeople = confirmed.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const declined = list.filter(g=>g.rsvp==='declined').length;
+  const pending = list.filter(g=>!g.rsvp || g.rsvp==='onbekend' || g.rsvp==='invited').length;
+  document.getElementById('guests-summary').innerHTML = `
+    <div class="stat"><b>${totalGuests}</b> genodigden (<b>${totalPeople}</b> personen)</div>
+    <div class="stat"><b>${confirmed.length}</b> komt (<b>${confirmedPeople}</b> personen)</div>
+    <div class="stat"><b>${declined}</b> komt niet</div>
+    <div class="stat"><b>${pending}</b> nog geen reactie</div>
+  `;
+}
+
+function addGuest(){
+  const input = document.getElementById('guest-input');
+  const val = input.value.trim();
+  if(!val) return;
+  if(!data.guests) data.guests = [];
+  data.guests.push({id: uid(), name: val, count: 1, category: 'Familie', rsvp: 'onbekend', notes: ''});
+  input.value = '';
+  renderAll();
+  scheduleSave();
+}
+function updateGuestField(id, field, value){
+  const g = (data.guests||[]).find(g=>g.id===id);
+  if(!g) return;
+  g[field] = field === 'count' ? (Number(value)||1) : value;
+  renderAll();
+  scheduleSave();
+}
+function removeGuest(id){
+  data.guests = (data.guests||[]).filter(g=>g.id!==id);
+  renderAll();
+  scheduleSave();
+}
+
 function renderOverview(){
   const wedOpen = data.wedding.filter(i=>!i.done);
   const renoOpen = data.reno.filter(i=>!i.done);
@@ -1005,6 +1124,15 @@ function renderOverview(){
   wedPrev.innerHTML = wedOpen.length ? wedOpen.slice(0,5).map(i=>`<li><label>${escapeHtml(i.text)}</label></li>`).join('') : '<li class="empty-state">Niets openstaand 🎉</li>';
   const renoPrev = document.getElementById('ov-reno-preview');
   renoPrev.innerHTML = renoOpen.length ? renoOpen.slice(0,5).map(i=>`<li><label>${escapeHtml(i.text)}</label></li>`).join('') : '<li class="empty-state">Niets openstaand 🎉</li>';
+
+  const gList = data.guests || [];
+  const gTotalPeople = gList.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  const gConfirmed = gList.filter(g=>g.rsvp==='confirmed');
+  const gConfirmedPeople = gConfirmed.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  document.getElementById('ov-guests-summary').innerHTML = gList.length ? `
+    <div class="stat"><b>${gList.length}</b> genodigden (<b>${gTotalPeople}</b> personen)</div>
+    <div class="stat"><b>${gConfirmed.length}</b> komt (<b>${gConfirmedPeople}</b> personen)</div>
+  ` : '<div class="empty-state">Nog geen gasten toegevoegd.</div>';
 
   const totalEst = sumBudget('est');
   const totalReal = sumBudget('real');
