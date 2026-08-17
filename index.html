@@ -1,0 +1,1158 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Sven & Vriendin — Trouwen & Verbouwen Planner</title>
+<style>
+  :root{
+    --bg:#faf7f2;
+    --card:#ffffff;
+    --ink:#2b2420;
+    --muted:#8a7f74;
+    --line:#e9e1d6;
+    --accent:#b8896b;
+    --accent-dark:#8f6448;
+    --accent-soft:#f3e6da;
+    --green:#5c8a6b;
+    --green-soft:#e6efe6;
+    --amber:#c99a3f;
+    --amber-soft:#f8eed8;
+    --red:#c4674f;
+    --red-soft:#f6e3dd;
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    background:linear-gradient(180deg,#f7ede1 0%,var(--bg) 260px);
+    color:var(--ink);
+    min-height:100vh;
+  }
+  header{
+    padding:28px 24px 18px;
+    text-align:center;
+  }
+  header h1{
+    margin:0 0 4px;
+    font-size:26px;
+    font-weight:700;
+    letter-spacing:-0.02em;
+  }
+  header p{
+    margin:0;
+    color:var(--muted);
+    font-size:14px;
+  }
+  #sync-status{
+    display:inline-flex;
+    align-items:center;
+    gap:6px;
+    margin-top:10px;
+    font-size:12px;
+    color:var(--muted);
+    background:var(--card);
+    border:1px solid var(--line);
+    padding:5px 12px;
+    border-radius:20px;
+  }
+  #sync-dot{
+    width:7px;height:7px;border-radius:50%;
+    background:var(--green);
+    transition:background .3s;
+  }
+  .tabs{
+    display:flex;
+    gap:6px;
+    justify-content:center;
+    padding:0 16px;
+    margin-bottom:18px;
+    flex-wrap:wrap;
+  }
+  .tab-btn{
+    border:1px solid var(--line);
+    background:var(--card);
+    color:var(--ink);
+    padding:9px 18px;
+    border-radius:10px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+    transition:all .15s;
+  }
+  .tab-btn.active{
+    background:var(--accent);
+    color:#fff;
+    border-color:var(--accent);
+  }
+  main{
+    max-width:920px;
+    margin:0 auto;
+    padding:0 16px 60px;
+  }
+  .panel{display:none;}
+  .panel.active{display:block; animation:fade .25s;}
+  @keyframes fade{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:none;}}
+
+  .grid{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:16px;
+  }
+  @media (max-width:720px){ .grid{grid-template-columns:1fr;} }
+
+  .card{
+    background:var(--card);
+    border:1px solid var(--line);
+    border-radius:var(--radius);
+    padding:18px 18px 14px;
+    margin-bottom:16px;
+    box-shadow:0 1px 2px rgba(40,30,20,0.03);
+  }
+  .card h2{
+    margin:0 0 12px;
+    font-size:16px;
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+  }
+  .card h2 .count{
+    font-size:12px;
+    font-weight:500;
+    color:var(--muted);
+  }
+
+  /* checklist */
+  .checklist{list-style:none;margin:0;padding:0;}
+  .checklist li{
+    display:flex;
+    align-items:flex-start;
+    gap:10px;
+    padding:8px 4px;
+    border-bottom:1px solid var(--line);
+  }
+  .checklist li:last-child{border-bottom:none;}
+  .checklist input[type=checkbox]{
+    margin-top:3px;
+    width:17px;height:17px;
+    accent-color:var(--accent);
+    cursor:pointer;
+    flex-shrink:0;
+  }
+  .checklist label{
+    flex:1;
+    font-size:14.5px;
+    line-height:1.4;
+    cursor:pointer;
+  }
+  .checklist li.done label{
+    color:var(--muted);
+    text-decoration:line-through;
+  }
+  .del-btn{
+    background:none;
+    border:none;
+    color:var(--muted);
+    cursor:pointer;
+    font-size:16px;
+    padding:0 4px;
+    opacity:.5;
+  }
+  .del-btn:hover{opacity:1;color:var(--red);}
+
+  .add-row{
+    display:flex;
+    gap:8px;
+    margin-top:10px;
+  }
+  .add-row input{
+    flex:1;
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px 10px;
+    font-size:14px;
+    background:var(--bg);
+  }
+  .add-row input:focus{outline:2px solid var(--accent-soft);border-color:var(--accent);}
+  .add-row button, .icon-add{
+    background:var(--accent);
+    color:#fff;
+    border:none;
+    border-radius:8px;
+    padding:8px 14px;
+    font-size:14px;
+    font-weight:600;
+    cursor:pointer;
+  }
+  .add-row button:hover{background:var(--accent-dark);}
+
+  /* budget table */
+  table{width:100%;border-collapse:collapse;font-size:13.5px;}
+  th{
+    text-align:left;
+    font-size:11px;
+    text-transform:uppercase;
+    letter-spacing:.04em;
+    color:var(--muted);
+    padding:6px 6px;
+    border-bottom:1px solid var(--line);
+  }
+  td{
+    padding:6px 6px;
+    border-bottom:1px solid var(--line);
+    vertical-align:middle;
+  }
+  td input{
+    width:100%;
+    border:1px solid transparent;
+    background:transparent;
+    font-size:13.5px;
+    padding:4px 5px;
+    border-radius:6px;
+    color:var(--ink);
+  }
+  td input:hover{border-color:var(--line);}
+  td input:focus{outline:none;border-color:var(--accent);background:#fff;}
+  td.num input{text-align:right;}
+  tfoot td{font-weight:700;border-bottom:none;padding-top:10px;}
+  .budget-bar-wrap{
+    margin-top:14px;
+    background:var(--line);
+    border-radius:8px;
+    height:10px;
+    overflow:hidden;
+  }
+  .budget-bar{
+    height:100%;
+    background:var(--green);
+    transition:width .4s;
+  }
+  .budget-bar.over{background:var(--red);}
+  .budget-caption{
+    display:flex;
+    justify-content:space-between;
+    font-size:12px;
+    color:var(--muted);
+    margin-top:6px;
+  }
+
+  /* timeline */
+  .timeline-item{
+    display:flex;
+    gap:12px;
+    padding:10px 4px;
+    border-bottom:1px solid var(--line);
+    align-items:center;
+  }
+  .timeline-item:last-child{border-bottom:none;}
+  .timeline-date{
+    font-size:12px;
+    font-weight:700;
+    color:var(--accent-dark);
+    background:var(--accent-soft);
+    padding:4px 9px;
+    border-radius:7px;
+    white-space:nowrap;
+    min-width:78px;
+    text-align:center;
+  }
+  .timeline-item input[type=text]{
+    flex:1;border:none;background:transparent;font-size:14px;color:var(--ink);
+  }
+  .timeline-item input[type=date]{
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:12px;
+    padding:4px;
+    background:var(--bg);
+  }
+
+  .tag{
+    display:inline-block;
+    font-size:11px;
+    font-weight:700;
+    padding:2px 8px;
+    border-radius:20px;
+  }
+  .tag.wedding{background:var(--accent-soft);color:var(--accent-dark);}
+  .tag.reno{background:var(--green-soft);color:var(--green);}
+
+  .notes-area{
+    width:100%;
+    min-height:120px;
+    border:1px solid var(--line);
+    border-radius:10px;
+    padding:12px;
+    font-size:14px;
+    font-family:inherit;
+    resize:vertical;
+    background:var(--bg);
+  }
+
+  footer{
+    text-align:center;
+    color:var(--muted);
+    font-size:12px;
+    padding:20px;
+  }
+
+  .empty-state{
+    color:var(--muted);
+    font-size:13px;
+    font-style:italic;
+    padding:6px 4px;
+  }
+
+  /* lock screen */
+  #lock-screen{
+    position:fixed; inset:0; z-index:999;
+    background:linear-gradient(180deg,#f7ede1 0%,var(--bg) 260px);
+    display:flex; align-items:center; justify-content:center; flex-direction:column;
+    padding:20px; text-align:center;
+  }
+  #lock-screen .lock-card{
+    background:var(--card); border:1px solid var(--line); border-radius:var(--radius);
+    padding:32px 28px; max-width:340px; width:100%;
+    box-shadow:0 4px 18px rgba(40,30,20,0.08);
+  }
+  #lock-screen h1{ font-size:22px; margin:0 0 6px; }
+  #lock-screen p{ color:var(--muted); font-size:13.5px; margin:0 0 18px; }
+  #lock-input{
+    width:100%; border:1px solid var(--line); border-radius:8px;
+    padding:11px 12px; font-size:15px; text-align:center; background:var(--bg);
+    margin-bottom:10px;
+  }
+  #lock-input:focus{ outline:none; border-color:var(--accent); }
+  #lock-btn{
+    width:100%; background:var(--accent); color:#fff; border:none; border-radius:8px;
+    padding:11px; font-size:14.5px; font-weight:700; cursor:pointer;
+  }
+  #lock-btn:hover{ background:var(--accent-dark); }
+  #lock-error{ color:var(--red); font-size:13px; margin-top:10px; min-height:16px; }
+  #app-content{ display:none; }
+  #app-content.unlocked{ display:block; }
+
+  /* categories */
+  .cat-header{
+    font-size:11.5px;
+    font-weight:800;
+    text-transform:uppercase;
+    letter-spacing:.05em;
+    color:var(--accent-dark);
+    background:var(--accent-soft);
+    padding:5px 10px;
+    border-radius:7px;
+    margin:14px 0 4px;
+    display:inline-block;
+  }
+  .cat-header:first-child{ margin-top:0; }
+  select.cat-select{
+    border:1px solid var(--line);
+    border-radius:8px;
+    padding:8px;
+    font-size:13px;
+    background:var(--bg);
+    color:var(--ink);
+    flex:0 0 auto;
+  }
+
+  /* attachments */
+  .checklist li{ flex-wrap:wrap; }
+  .attach-btn{
+    background:none; border:none; cursor:pointer; font-size:15px;
+    opacity:.45; padding:0 4px;
+  }
+  .attach-btn:hover{ opacity:1; }
+  .attach-btn.has-items{ opacity:.9; }
+  .attach-panel{
+    display:none;
+    width:100%;
+    margin:8px 0 4px 27px;
+    padding:10px 12px;
+    background:var(--bg);
+    border:1px solid var(--line);
+    border-radius:10px;
+  }
+  .attach-panel.open{ display:block; }
+  .attach-chips{
+    display:flex; flex-wrap:wrap; gap:8px; margin-bottom:8px;
+  }
+  .attach-chip{
+    position:relative;
+    display:flex; align-items:center; gap:6px;
+    background:var(--card); border:1px solid var(--line); border-radius:8px;
+    padding:4px 8px; font-size:12px; max-width:160px;
+  }
+  .attach-chip img{
+    width:28px; height:28px; object-fit:cover; border-radius:5px; flex-shrink:0;
+  }
+  .attach-chip a{ color:var(--accent-dark); text-decoration:none; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .attach-chip .attach-remove{
+    background:none; border:none; color:var(--muted); cursor:pointer; font-size:13px; padding:0 2px; flex-shrink:0;
+  }
+  .attach-chip .attach-remove:hover{ color:var(--red); }
+  .attach-add-row{ display:flex; gap:6px; flex-wrap:wrap; align-items:center; }
+  .attach-add-row input[type=text]{
+    flex:1; min-width:120px; border:1px solid var(--line); border-radius:7px; padding:6px 8px; font-size:12.5px; background:var(--card);
+  }
+  .attach-add-row label.file-btn{
+    background:var(--card); border:1px solid var(--line); border-radius:7px;
+    padding:6px 10px; font-size:12.5px; cursor:pointer; white-space:nowrap;
+  }
+  .attach-add-row label.file-btn:hover{ border-color:var(--accent); }
+  .attach-add-row button{
+    background:var(--accent); color:#fff; border:none; border-radius:7px;
+    padding:6px 10px; font-size:12.5px; font-weight:600; cursor:pointer;
+  }
+  .attach-hint{ font-size:11px; color:var(--muted); margin-top:6px; }
+
+  .timeline-item input[type=time]{
+    border:1px solid var(--line);
+    border-radius:6px;
+    font-size:12px;
+    padding:4px;
+    background:var(--bg);
+  }
+</style>
+</head>
+<body>
+
+<div id="lock-screen">
+  <div class="lock-card">
+    <h1>🔒 Even inloggen</h1>
+    <p>Deze planner is van Sven & Rose. Vul het wachtwoord in om verder te gaan.</p>
+    <input type="password" id="lock-input" placeholder="Wachtwoord" autocomplete="off">
+    <button id="lock-btn" onclick="tryUnlock()">Ontgrendel</button>
+    <div id="lock-error"></div>
+  </div>
+</div>
+
+<div id="app-content">
+
+<header>
+  <h1>💍 Trouwen & 🛠️ Verbouwen</h1>
+  <p>Gedeelde planner — alles wat jullie samen bijhouden, op één plek</p>
+  <div id="sync-status"><span id="sync-dot"></span><span id="sync-text">Synchroniseren...</span></div>
+</header>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="overzicht">Overzicht</button>
+  <button class="tab-btn" data-tab="trouwen">Trouwen</button>
+  <button class="tab-btn" data-tab="verbouwen">Verbouwen</button>
+  <button class="tab-btn" data-tab="budget">Budget</button>
+  <button class="tab-btn" data-tab="planning">Planning</button>
+  <button class="tab-btn" data-tab="notities">Notities</button>
+</div>
+
+<main>
+
+  <!-- OVERZICHT -->
+  <section class="panel active" id="panel-overzicht">
+    <div class="grid">
+      <div class="card">
+        <h2>💍 Trouwen <span class="count" id="ov-wed-count"></span></h2>
+        <ul class="checklist" id="ov-wed-preview"></ul>
+      </div>
+      <div class="card">
+        <h2>🛠️ Verbouwen <span class="count" id="ov-reno-count"></span></h2>
+        <ul class="checklist" id="ov-reno-preview"></ul>
+      </div>
+    </div>
+    <div class="card">
+      <h2>💶 Budget totaal</h2>
+      <div class="budget-bar-wrap"><div class="budget-bar" id="ov-budget-bar"></div></div>
+      <div class="budget-caption"><span id="ov-budget-spent"></span><span id="ov-budget-total"></span></div>
+    </div>
+    <div class="card">
+      <h2>📅 Eerstvolgende data</h2>
+      <div id="ov-timeline-preview"></div>
+    </div>
+  </section>
+
+  <!-- TROUWEN -->
+  <section class="panel" id="panel-trouwen">
+    <div class="card">
+      <h2>Checklist trouwen <span class="count" id="wed-count"></span></h2>
+      <ul class="checklist" id="wed-list"></ul>
+      <div class="add-row">
+        <input type="text" id="wed-input" placeholder="Nieuwe taak toevoegen (bijv. locatie boeken)...">
+        <select class="cat-select" id="wed-cat-select"></select>
+        <button onclick="addItem('wedding')">Toevoegen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- VERBOUWEN -->
+  <section class="panel" id="panel-verbouwen">
+    <div class="card">
+      <h2>Checklist verbouwing <span class="count" id="reno-count"></span></h2>
+      <ul class="checklist" id="reno-list"></ul>
+      <div class="add-row">
+        <input type="text" id="reno-input" placeholder="Nieuwe taak toevoegen (bijv. offerte aannemer)...">
+        <button onclick="addItem('reno')">Toevoegen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- BUDGET -->
+  <section class="panel" id="panel-budget">
+    <div class="card">
+      <h2>💍 Budget trouwen</h2>
+      <table>
+        <thead><tr><th>Post</th><th>Geraamd</th><th>Werkelijk</th><th>Wie</th><th></th></tr></thead>
+        <tbody id="budget-wedding-body"></tbody>
+        <tfoot><tr><td>Totaal</td><td class="num" id="wed-total-est"></td><td class="num" id="wed-total-real"></td><td></td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row">
+        <input type="text" id="budget-wed-input" placeholder="Nieuwe budgetpost...">
+        <button onclick="addBudgetRow('wedding')">Toevoegen</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>🛠️ Budget verbouwing</h2>
+      <table>
+        <thead><tr><th>Post</th><th>Geraamd</th><th>Werkelijk</th><th>Wie</th><th></th></tr></thead>
+        <tbody id="budget-reno-body"></tbody>
+        <tfoot><tr><td>Totaal</td><td class="num" id="reno-total-est"></td><td class="num" id="reno-total-real"></td><td></td><td></td></tr></tfoot>
+      </table>
+      <div class="add-row">
+        <input type="text" id="budget-reno-input" placeholder="Nieuwe budgetpost...">
+        <button onclick="addBudgetRow('reno')">Toevoegen</button>
+      </div>
+    </div>
+    <div class="card">
+      <h2>Totaal overzicht</h2>
+      <div class="budget-bar-wrap"><div class="budget-bar" id="budget-bar-main"></div></div>
+      <div class="budget-caption"><span id="budget-spent-main">€0 uitgegeven</span><span id="budget-total-main">van €0 geraamd</span></div>
+    </div>
+  </section>
+
+  <!-- PLANNING -->
+  <section class="panel" id="panel-planning">
+    <div class="card">
+      <h2>📅 Belangrijke data</h2>
+      <div id="timeline-list"></div>
+      <div class="add-row">
+        <input type="date" id="tl-date" style="flex:0 0 150px;">
+        <input type="time" id="tl-time" style="flex:0 0 100px;">
+        <input type="text" id="tl-text" placeholder="Wat staat er te gebeuren?">
+        <select id="tl-tag" style="border:1px solid var(--line);border-radius:8px;padding:8px;font-size:13px;">
+          <option value="wedding">💍 Trouwen</option>
+          <option value="reno">🛠️ Verbouwing</option>
+        </select>
+        <button onclick="addTimelineItem()">Toevoegen</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- NOTITIES -->
+  <section class="panel" id="panel-notities">
+    <div class="card">
+      <h2>📝 Losse notities & ideeën</h2>
+      <textarea class="notes-area" id="notes" placeholder="Ideeën, contactgegevens, linkjes, whatever..." oninput="scheduleSave()"></textarea>
+    </div>
+  </section>
+
+</main>
+
+<footer>Gemaakt voor Sven & Rose · automatisch gedeeld tussen jullie beiden</footer>
+
+</div><!-- /#app-content -->
+
+<script>
+/* ---------- Data model ---------- */
+let data = {
+  wedding: [],       // {id, text, done, category, attachments:[]}
+  reno: [],          // {id, text, done, attachments:[]}
+  budgetWedding: [],  // {id, name, est, real, who}
+  budgetReno: [],
+  timeline: [],       // {id, date, time, text, tag}
+  notes: "",
+  seeded: false
+};
+
+/* ---------- Wedding checklist categories ---------- */
+const CATEGORIES = [
+  {key:'vooraf',   label:'Vóór alles'},
+  {key:'locatie',  label:'Locatie & catering'},
+  {key:'stijl',    label:'Aankleding & styling'},
+  {key:'kleding',  label:'Kleding & beauty'},
+  {key:'media',    label:'Foto, video & entertainment'},
+  {key:'ceremonie',label:'Ceremonie'},
+  {key:'eten',     label:'Eten & drinken'},
+  {key:'praktisch',label:'Praktisch & vervoer'},
+  {key:'officieel',label:'Officieel & administratie'},
+  {key:'opdedag',  label:'Op de dag zelf'},
+  {key:'na',       label:'Na de bruiloft'},
+  {key:'overig',   label:'Overig'}
+];
+const CAT_LABEL = Object.fromEntries(CATEGORIES.map(c=>[c.key,c.label]));
+
+const DEFAULT_WEDDING_ITEMS = [
+  ['vooraf','Online weddingplanner/tool kiezen en instellen'],
+  ['vooraf','Trouwdatum prikken'],
+  ['vooraf','Budget bepalen'],
+  ['vooraf','Gastenlijst opstellen (concept)'],
+  ['vooraf','Thema/stijl van de bruiloft bepalen'],
+  ['vooraf','Getuigen vragen'],
+  ['locatie','Trouwlocatie bezichtigen en boeken'],
+  ['locatie','Locatie voor het feest boeken'],
+  ['locatie','Cateraar kiezen en offerte opvragen'],
+  ['locatie','Drankarrangement regelen'],
+  ['stijl','Bloemist kiezen (boeket, corsages, tafelbloemen)'],
+  ['stijl','Aankleding & decoratie ceremonie regelen'],
+  ['stijl','Aankleding & decoratie feestzaal regelen'],
+  ['stijl','Tafelschikking en tafelindeling maken'],
+  ['stijl','Kaarsen, lichtjes en sfeerverlichting regelen'],
+  ['stijl','Naamkaartjes en tafelnummers laten maken'],
+  ['kleding','Trouwjurk uitzoeken en passen'],
+  ['kleding','Pak bruidegom uitzoeken'],
+  ['kleding','Schoenen en accessoires kiezen'],
+  ['kleding','Kapper en visagie boeken (proefsessie inplannen)'],
+  ['kleding','Kleding getuigen/bruidsmeisjes afstemmen'],
+  ['media','Fotograaf boeken'],
+  ['media','Videograaf boeken'],
+  ['media','DJ of band regelen'],
+  ['media','Fotobooth of gastenboek regelen'],
+  ['media','Playlist/muziekwensen doorgeven'],
+  ['ceremonie','Trouwambtenaar regelen'],
+  ['ceremonie','Trouwringen uitzoeken en bestellen'],
+  ['ceremonie','Geloften schrijven'],
+  ['ceremonie','Ceremoniemuziek uitkiezen (binnenkomst, kus, uitloop)'],
+  ['eten','Bruidstaart uitzoeken en proeven'],
+  ['eten','Menu samenstellen (incl. allergieën/dieetwensen)'],
+  ['eten','Kindermenu regelen'],
+  ['eten','Borrel/nagerecht regelen'],
+  ['praktisch','Uitnodigingen ontwerpen en versturen'],
+  ['praktisch','RSVP bijhouden'],
+  ['praktisch','Vervoer trouwdag regelen (auto, trouwkoets, bus gasten)'],
+  ['praktisch','Overnachting gasten regelen'],
+  ['praktisch','Parkeren bij locatie regelen'],
+  ['praktisch','Weerplan B voor buiten regelen'],
+  ['officieel','Melding/aangifte huwelijk bij gemeente regelen'],
+  ['officieel','Huwelijkse voorwaarden bespreken (indien van toepassing)'],
+  ['officieel','Achternaam wijzigen (paspoort, bank, etc.)'],
+  ['officieel','Trouwverzekering afsluiten'],
+  ['officieel','Cadeaulijst/bijdrage huwelijksreis instellen'],
+  ['opdedag','Draaiboek van de dag maken'],
+  ['opdedag','Speeches/toespraken inplannen'],
+  ['opdedag','Contactpersoon dag zelf aanwijzen (coördinatie)'],
+  ['opdedag','Noodkitje regelen (naaisetje, pleisters, etc.)'],
+  ['na','Bedankjes voor gasten regelen en versturen'],
+  ['na',"Foto's delen met gasten"],
+  ['na','Huwelijksreis boeken']
+];
+
+const BUCKET = "hanvos-trouw-verbouw-sven-2026";
+const KVDB_URL = "https://kvdb.io/" + BUCKET + "/data";
+const LOCAL_KEY = "trouwverbouw-planner-data";
+let saveTimer = null;
+let lastSavedJSON = "";
+let loaded = false;
+
+function uid(){ return Math.random().toString(36).slice(2,10); }
+
+/* Local storage is the safety net: it's synchronous and always available in
+   this browser, so a refresh can never lose what you just typed, even if
+   the online sync is temporarily unreachable. The online store is only
+   there to share changes with your partner's browser. */
+function saveLocal(){
+  try{
+    data._updatedAt = Date.now();
+    localStorage.setItem(LOCAL_KEY, JSON.stringify(data));
+  }catch(e){ /* storage unavailable/full — cloud sync still attempted */ }
+}
+function loadLocal(){
+  try{
+    const raw = localStorage.getItem(LOCAL_KEY);
+    if(raw){
+      const parsed = JSON.parse(raw);
+      data = Object.assign(data, parsed);
+      return true;
+    }
+  }catch(e){ /* ignore corrupt/unavailable storage */ }
+  return false;
+}
+
+function setSyncStatus(state){
+  const dot = document.getElementById('sync-dot');
+  const text = document.getElementById('sync-text');
+  if(state === 'ok'){ dot.style.background = 'var(--green)'; text.textContent = 'Gesynchroniseerd'; }
+  else if(state === 'saving'){ dot.style.background = 'var(--amber)'; text.textContent = 'Opslaan...'; }
+  else if(state === 'local-only'){ dot.style.background = 'var(--amber)'; text.textContent = 'Lokaal opgeslagen — online sync lukt niet, wordt automatisch opnieuw geprobeerd'; }
+  else if(state === 'error'){ dot.style.background = 'var(--red)'; text.textContent = 'Offline — je wijzigingen blijven wel lokaal bewaard'; }
+  else { dot.style.background = 'var(--muted)'; text.textContent = 'Synchroniseren...'; }
+}
+
+async function loadData(){
+  // 1. Local copy first — instant, always available, guarantees a refresh
+  //    never loses what was typed in this browser.
+  const hadLocal = loadLocal();
+  loaded = true;
+  renderAll();
+
+  // 2. Then try the shared online copy, and merge in whichever is newer
+  //    (so changes made on the other person's device/browser show up too).
+  try{
+    const res = await fetch(KVDB_URL, {cache:'no-store'});
+    if(res.ok){
+      const txt = await res.text();
+      if(txt && txt.trim().length){
+        const parsed = JSON.parse(txt);
+        const remoteTime = parsed._updatedAt || 0;
+        const localTime = hadLocal ? (data._updatedAt || 0) : -1;
+        if(remoteTime >= localTime){
+          data = Object.assign(data, parsed);
+        }
+        lastSavedJSON = txt;
+        renderAll();
+      }
+    }
+    setSyncStatus('ok');
+  }catch(e){
+    setSyncStatus(hadLocal ? 'local-only' : 'error');
+  }
+  // make sure local storage reflects whatever we ended up rendering
+  saveLocal();
+
+  // Seed a big default wedding checklist once, only if nobody has a
+  // wedding list yet (locally or online) — never overwrites real progress.
+  if(!data.seeded && (!data.wedding || data.wedding.length === 0)){
+    data.wedding = DEFAULT_WEDDING_ITEMS.map(([category,text])=>({id:uid(), text, done:false, category, attachments:[]}));
+    data.seeded = true;
+    renderAll();
+    scheduleSave();
+  }
+}
+
+function scheduleSave(){
+  // Save locally right away — this is what actually prevents data loss on
+  // refresh, independent of whether the network call below succeeds.
+  saveLocal();
+  setSyncStatus('saving');
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(saveData, 600);
+}
+
+async function saveData(){
+  data.notes = document.getElementById('notes').value;
+  data._updatedAt = Date.now();
+  saveLocal();
+  const json = JSON.stringify(data);
+  try{
+    await fetch(KVDB_URL, {method:'PUT', body: json});
+    lastSavedJSON = json;
+    setSyncStatus('ok');
+  }catch(e){
+    setSyncStatus('local-only');
+  }
+}
+
+// poll for updates from partner every 5s (only when not actively typing)
+let typing = false;
+setInterval(async ()=>{
+  if(typing) return;
+  try{
+    const res = await fetch(KVDB_URL, {cache:'no-store'});
+    if(res.ok){
+      const txt = await res.text();
+      if(txt && txt.trim().length && txt !== lastSavedJSON){
+        const parsed = JSON.parse(txt);
+        // only take the remote version if it's actually newer than ours,
+        // so we never clobber a not-yet-synced local change
+        if((parsed._updatedAt||0) >= (data._updatedAt||0)){
+          data = Object.assign(data, parsed);
+          lastSavedJSON = txt;
+          renderAll();
+          saveLocal();
+        }
+      }
+    }
+    setSyncStatus('ok');
+  }catch(e){ setSyncStatus('local-only'); }
+}, 5000);
+
+/* ---------- Rendering ---------- */
+function renderAll(){
+  renderChecklist('wedding');
+  renderChecklist('reno');
+  renderBudget('wedding');
+  renderBudget('reno');
+  renderTimeline();
+  renderOverview();
+  document.getElementById('notes').value = data.notes || "";
+}
+
+const openAttachPanels = new Set();
+
+function attachChipHtml(kind,itemId,att){
+  if(att.type === 'image'){
+    return `<div class="attach-chip"><img src="${att.data}" alt="foto" onclick="window.open('${att.data.replace(/'/g,"%27")}','_blank')"><button class="attach-remove" onclick="removeAttachment('${kind}','${itemId}','${att.id}')">✕</button></div>`;
+  }
+  return `<div class="attach-chip">🔗 <a href="${escapeAttr(att.data)}" target="_blank" rel="noopener">${escapeHtml(att.label || att.data)}</a><button class="attach-remove" onclick="removeAttachment('${kind}','${itemId}','${att.id}')">✕</button></div>`;
+}
+
+function checklistItemHtml(kind,item){
+  const attachments = item.attachments || [];
+  const panelOpenKey = kind + ':' + item.id;
+  const isOpen = openAttachPanels.has(panelOpenKey);
+  const fileInputId = 'file-' + kind + '-' + item.id;
+  return `
+    <li class="${item.done?'done':''}">
+      <input type="checkbox" ${item.done?'checked':''} onchange="toggleItem('${kind}','${item.id}')">
+      <label onclick="toggleItem('${kind}','${item.id}')">${escapeHtml(item.text)}</label>
+      <button class="attach-btn ${attachments.length?'has-items':''}" title="Foto's / documenten" onclick="toggleAttachPanel('${kind}','${item.id}')">📎${attachments.length?` ${attachments.length}`:''}</button>
+      <button class="del-btn" onclick="removeItem('${kind}','${item.id}')">✕</button>
+      <div class="attach-panel ${isOpen?'open':''}" id="panel-${panelOpenKey.replace(':','-')}">
+        <div class="attach-chips">${attachments.map(a=>attachChipHtml(kind,item.id,a)).join('') || ''}</div>
+        <div class="attach-add-row">
+          <label class="file-btn">📷 Foto toevoegen<input type="file" accept="image/*" style="display:none" id="${fileInputId}" onchange="handleImageUpload('${kind}','${item.id}',this)"></label>
+          <input type="text" placeholder="of plak een link (Drive, Dropbox...)" id="link-${kind}-${item.id}">
+          <button onclick="addLinkAttachment('${kind}','${item.id}')">Link toevoegen</button>
+        </div>
+        <div class="attach-hint">Foto's worden automatisch verkleind. Voor grote bestanden liever een gedeelde link.</div>
+      </div>
+    </li>`;
+}
+
+function renderChecklist(kind){
+  const list = kind === 'wedding' ? data.wedding : data.reno;
+  const ul = document.getElementById(kind === 'wedding' ? 'wed-list' : 'reno-list');
+  const countEl = document.getElementById(kind === 'wedding' ? 'wed-count' : 'reno-count');
+  const done = list.filter(i=>i.done).length;
+  countEl.textContent = list.length ? `${done}/${list.length} klaar` : '';
+  if(!list.length){
+    ul.innerHTML = '<li class="empty-state">Nog geen taken. Voeg er eentje toe hieronder.</li>';
+    return;
+  }
+  if(kind === 'wedding'){
+    let html = '';
+    CATEGORIES.forEach(cat=>{
+      const items = list.filter(i=>(i.category||'overig') === cat.key);
+      if(!items.length) return;
+      html += `<li style="border:none;padding:0;"><span class="cat-header">${cat.label}</span></li>`;
+      html += items.map(item=>checklistItemHtml(kind,item)).join('');
+    });
+    ul.innerHTML = html;
+  }else{
+    ul.innerHTML = list.map(item=>checklistItemHtml(kind,item)).join('');
+  }
+}
+
+function toggleAttachPanel(kind,id){
+  const key = kind + ':' + id;
+  if(openAttachPanels.has(key)) openAttachPanels.delete(key);
+  else openAttachPanels.add(key);
+  renderChecklist(kind);
+}
+
+function addLinkAttachment(kind,id){
+  const input = document.getElementById(`link-${kind}-${id}`);
+  const val = input.value.trim();
+  if(!val) return;
+  const list = kind==='wedding' ? data.wedding : data.reno;
+  const item = list.find(i=>i.id===id);
+  if(!item) return;
+  if(!item.attachments) item.attachments = [];
+  item.attachments.push({id:uid(), type:'link', data: val, label: val.replace(/^https?:\/\//,'').slice(0,40)});
+  openAttachPanels.add(kind+':'+id);
+  renderChecklist(kind);
+  scheduleSave();
+}
+
+function handleImageUpload(kind,id,inputEl){
+  const file = inputEl.files && inputEl.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (e)=>{
+    const img = new Image();
+    img.onload = ()=>{
+      const maxW = 1000;
+      const scale = Math.min(1, maxW / img.width);
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width*scale);
+      canvas.height = Math.round(img.height*scale);
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img,0,0,canvas.width,canvas.height);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.72);
+      const list = kind==='wedding' ? data.wedding : data.reno;
+      const item = list.find(i=>i.id===id);
+      if(!item) return;
+      if(!item.attachments) item.attachments = [];
+      item.attachments.push({id:uid(), type:'image', data: dataUrl});
+      openAttachPanels.add(kind+':'+id);
+      renderChecklist(kind);
+      scheduleSave();
+    };
+    img.src = e.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+function removeAttachment(kind,id,attId){
+  const list = kind==='wedding' ? data.wedding : data.reno;
+  const item = list.find(i=>i.id===id);
+  if(item && item.attachments) item.attachments = item.attachments.filter(a=>a.id!==attId);
+  renderChecklist(kind);
+  scheduleSave();
+}
+
+function renderBudget(kind){
+  const list = kind === 'wedding' ? data.budgetWedding : data.budgetReno;
+  const body = document.getElementById(kind === 'wedding' ? 'budget-wedding-body' : 'budget-reno-body');
+  body.innerHTML = '';
+  let est = 0, real = 0;
+  list.forEach(row=>{
+    est += Number(row.est)||0;
+    real += Number(row.real)||0;
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td><input type="text" value="${escapeAttr(row.name)}" onchange="updateBudgetField('${kind}','${row.id}','name',this.value)"></td>
+      <td class="num"><input type="number" value="${row.est||0}" onchange="updateBudgetField('${kind}','${row.id}','est',this.value)"></td>
+      <td class="num"><input type="number" value="${row.real||0}" onchange="updateBudgetField('${kind}','${row.id}','real',this.value)"></td>
+      <td><input type="text" value="${escapeAttr(row.who||'')}" onchange="updateBudgetField('${kind}','${row.id}','who',this.value)" placeholder="beiden"></td>
+      <td><button class="del-btn" onclick="removeBudgetRow('${kind}','${row.id}')">✕</button></td>
+    `;
+    body.appendChild(tr);
+  });
+  document.getElementById(kind==='wedding'?'wed-total-est':'reno-total-est').textContent = fmtEuro(est);
+  document.getElementById(kind==='wedding'?'wed-total-real':'reno-total-real').textContent = fmtEuro(real);
+
+  // update main budget bar
+  const totalEst = sumBudget('est');
+  const totalReal = sumBudget('real');
+  const pct = totalEst > 0 ? Math.min(100,(totalReal/totalEst)*100) : 0;
+  const bar = document.getElementById('budget-bar-main');
+  bar.style.width = pct + '%';
+  bar.classList.toggle('over', totalReal > totalEst && totalEst > 0);
+  document.getElementById('budget-spent-main').textContent = fmtEuro(totalReal) + ' uitgegeven';
+  document.getElementById('budget-total-main').textContent = 'van ' + fmtEuro(totalEst) + ' geraamd';
+}
+
+function sumBudget(field){
+  return [...data.budgetWedding, ...data.budgetReno].reduce((s,r)=> s + (Number(r[field])||0), 0);
+}
+
+function renderTimeline(){
+  const container = document.getElementById('timeline-list');
+  container.innerHTML = '';
+  const sorted = [...data.timeline].sort((a,b)=> ((a.date||'')+(a.time||'')).localeCompare((b.date||'')+(b.time||'')));
+  if(!sorted.length){
+    container.innerHTML = '<div class="empty-state">Nog geen data toegevoegd.</div>';
+  }
+  sorted.forEach(item=>{
+    const div = document.createElement('div');
+    div.className = 'timeline-item';
+    div.innerHTML = `
+      <input type="date" value="${item.date||''}" onchange="updateTimelineField('${item.id}','date',this.value)">
+      <input type="time" value="${item.time||''}" onchange="updateTimelineField('${item.id}','time',this.value)">
+      <span class="tag ${item.tag}">${item.tag==='wedding'?'💍':'🛠️'}</span>
+      <input type="text" value="${escapeAttr(item.text)}" onchange="updateTimelineField('${item.id}','text',this.value)">
+      <button class="del-btn" onclick="removeTimelineItem('${item.id}')">✕</button>
+    `;
+    container.appendChild(div);
+  });
+}
+
+function renderOverview(){
+  const wedOpen = data.wedding.filter(i=>!i.done);
+  const renoOpen = data.reno.filter(i=>!i.done);
+  document.getElementById('ov-wed-count').textContent = data.wedding.length ? `${data.wedding.filter(i=>i.done).length}/${data.wedding.length}` : '';
+  document.getElementById('ov-reno-count').textContent = data.reno.length ? `${data.reno.filter(i=>i.done).length}/${data.reno.length}` : '';
+
+  const wedPrev = document.getElementById('ov-wed-preview');
+  wedPrev.innerHTML = wedOpen.length ? wedOpen.slice(0,5).map(i=>`<li><label>${escapeHtml(i.text)}</label></li>`).join('') : '<li class="empty-state">Niets openstaand 🎉</li>';
+  const renoPrev = document.getElementById('ov-reno-preview');
+  renoPrev.innerHTML = renoOpen.length ? renoOpen.slice(0,5).map(i=>`<li><label>${escapeHtml(i.text)}</label></li>`).join('') : '<li class="empty-state">Niets openstaand 🎉</li>';
+
+  const totalEst = sumBudget('est');
+  const totalReal = sumBudget('real');
+  const pct = totalEst > 0 ? Math.min(100,(totalReal/totalEst)*100) : 0;
+  const bar = document.getElementById('ov-budget-bar');
+  bar.style.width = pct + '%';
+  bar.classList.toggle('over', totalReal > totalEst && totalEst > 0);
+  document.getElementById('ov-budget-spent').textContent = fmtEuro(totalReal) + ' uitgegeven';
+  document.getElementById('ov-budget-total').textContent = 'van ' + fmtEuro(totalEst) + ' geraamd';
+
+  const upcoming = [...data.timeline].filter(t=>t.date).sort((a,b)=>(a.date+(a.time||'')).localeCompare(b.date+(b.time||''))).slice(0,4);
+  const tlPrev = document.getElementById('ov-timeline-preview');
+  if(!upcoming.length){
+    tlPrev.innerHTML = '<div class="empty-state">Nog geen data gepland.</div>';
+  }else{
+    tlPrev.innerHTML = upcoming.map(t=>`
+      <div class="timeline-item">
+        <span class="timeline-date">${formatDate(t.date)}${t.time?' '+t.time:''}</span>
+        <span class="tag ${t.tag}">${t.tag==='wedding'?'💍':'🛠️'}</span>
+        <span style="flex:1;font-size:14px;">${escapeHtml(t.text)}</span>
+      </div>`).join('');
+  }
+}
+
+/* ---------- Actions ---------- */
+function addItem(kind){
+  const input = document.getElementById(kind==='wedding' ? 'wed-input' : 'reno-input');
+  const val = input.value.trim();
+  if(!val) return;
+  const list = kind==='wedding' ? data.wedding : data.reno;
+  const newItem = {id: uid(), text: val, done:false, attachments:[]};
+  if(kind === 'wedding'){
+    const catSelect = document.getElementById('wed-cat-select');
+    newItem.category = catSelect ? catSelect.value : 'overig';
+  }
+  list.push(newItem);
+  input.value = '';
+  renderAll();
+  scheduleSave();
+}
+
+function populateCategorySelect(){
+  const sel = document.getElementById('wed-cat-select');
+  if(!sel || sel.options.length) return;
+  sel.innerHTML = CATEGORIES.map(c=>`<option value="${c.key}">${c.label}</option>`).join('');
+}
+function toggleItem(kind,id){
+  const list = kind==='wedding' ? data.wedding : data.reno;
+  const item = list.find(i=>i.id===id);
+  if(item) item.done = !item.done;
+  renderAll();
+  scheduleSave();
+}
+function removeItem(kind,id){
+  if(kind==='wedding') data.wedding = data.wedding.filter(i=>i.id!==id);
+  else data.reno = data.reno.filter(i=>i.id!==id);
+  renderAll();
+  scheduleSave();
+}
+
+function addBudgetRow(kind){
+  const input = document.getElementById(kind==='wedding' ? 'budget-wed-input' : 'budget-reno-input');
+  const val = input.value.trim();
+  if(!val) return;
+  const list = kind==='wedding' ? data.budgetWedding : data.budgetReno;
+  list.push({id: uid(), name: val, est:0, real:0, who:''});
+  input.value = '';
+  renderAll();
+  scheduleSave();
+}
+function updateBudgetField(kind,id,field,value){
+  const list = kind==='wedding' ? data.budgetWedding : data.budgetReno;
+  const row = list.find(r=>r.id===id);
+  if(row) row[field] = (field==='est'||field==='real') ? Number(value)||0 : value;
+  renderAll();
+  scheduleSave();
+}
+function removeBudgetRow(kind,id){
+  if(kind==='wedding') data.budgetWedding = data.budgetWedding.filter(r=>r.id!==id);
+  else data.budgetReno = data.budgetReno.filter(r=>r.id!==id);
+  renderAll();
+  scheduleSave();
+}
+
+function addTimelineItem(){
+  const date = document.getElementById('tl-date').value;
+  const time = document.getElementById('tl-time').value;
+  const text = document.getElementById('tl-text').value.trim();
+  const tag = document.getElementById('tl-tag').value;
+  if(!text) return;
+  data.timeline.push({id: uid(), date, time, text, tag});
+  document.getElementById('tl-text').value = '';
+  document.getElementById('tl-time').value = '';
+  renderAll();
+  scheduleSave();
+}
+function updateTimelineField(id,field,value){
+  const row = data.timeline.find(r=>r.id===id);
+  if(row) row[field] = value;
+  renderAll();
+  scheduleSave();
+}
+function removeTimelineItem(id){
+  data.timeline = data.timeline.filter(r=>r.id!==id);
+  renderAll();
+  scheduleSave();
+}
+
+/* ---------- Helpers ---------- */
+function fmtEuro(n){
+  return '€' + Number(n||0).toLocaleString('nl-NL', {maximumFractionDigits:0});
+}
+function formatDate(iso){
+  if(!iso) return '';
+  const d = new Date(iso + 'T00:00:00');
+  return d.toLocaleDateString('nl-NL', {day:'numeric', month:'short'});
+}
+function escapeHtml(s){
+  const div = document.createElement('div');
+  div.textContent = s || '';
+  return div.innerHTML;
+}
+function escapeAttr(s){
+  return (s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;');
+}
+
+/* ---------- Tabs ---------- */
+document.querySelectorAll('.tab-btn').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('.tab-btn').forEach(b=>b.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p=>p.classList.remove('active'));
+    btn.classList.add('active');
+    document.getElementById('panel-' + btn.dataset.tab).classList.add('active');
+  });
+});
+
+document.getElementById('notes').addEventListener('focus', ()=> typing = true);
+document.getElementById('notes').addEventListener('blur', ()=> { typing = false; scheduleSave(); });
+
+/* ---------- Password lock ----------
+   Note: this is a light "keep casual visitors out" screen, not real
+   security — anyone who views this file's source can find the check
+   below. Don't rely on it to protect sensitive info. */
+const UNLOCK_KEY = 'trouwverbouw-unlocked';
+const PASSWORD_HASH = '618d663af0f1ec88a5a19defa65a2f80d06582a832510b12f475d80870bdb3ab'; // sha256("rose")
+
+async function sha256Hex(str){
+  try{
+    const buf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(str));
+    return Array.from(new Uint8Array(buf)).map(b=>b.toString(16).padStart(2,'0')).join('');
+  }catch(e){
+    return null; // crypto.subtle unavailable — caller falls back to plain compare
+  }
+}
+
+async function tryUnlock(){
+  const input = document.getElementById('lock-input');
+  const val = (input.value || '').trim().toLowerCase();
+  const errEl = document.getElementById('lock-error');
+  const hash = await sha256Hex(val);
+  const ok = hash ? (hash === PASSWORD_HASH) : (val === 'rose');
+  if(ok){
+    try{ localStorage.setItem(UNLOCK_KEY, '1'); }catch(e){}
+    unlockApp();
+  }else{
+    errEl.textContent = 'Dat is niet het juiste wachtwoord.';
+    input.value = '';
+    input.focus();
+  }
+}
+function unlockApp(){
+  document.getElementById('lock-screen').style.display = 'none';
+  document.getElementById('app-content').classList.add('unlocked');
+  populateCategorySelect();
+  loadData();
+}
+document.getElementById('lock-input').addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter') tryUnlock();
+});
+
+/* ---------- Init ---------- */
+let alreadyUnlocked = false;
+try{ alreadyUnlocked = localStorage.getItem(UNLOCK_KEY) === '1'; }catch(e){}
+if(alreadyUnlocked){
+  unlockApp();
+}else{
+  document.getElementById('lock-input').focus();
+}
+</script>
+</body>
+</html>
