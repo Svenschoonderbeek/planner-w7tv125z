@@ -437,6 +437,16 @@
   .guest-subrow td{ background:rgba(0,0,0,0.015); }
   .indent-arrow{ color:var(--muted); margin-right:4px; }
   .maybe-check{ display:flex; align-items:center; gap:4px; font-size:12.5px; color:var(--muted); white-space:nowrap; }
+  .row-tags{ float:right; display:inline-flex; gap:6px; }
+  .tag-chip{
+    display:inline-block; border:1px solid var(--line); border-radius:20px;
+    padding:2px 9px; font-size:11px; color:var(--muted); background:var(--card);
+    white-space:nowrap;
+  }
+  .tag-chip.tag-confirmed{ color:var(--green); border-color:var(--green); }
+  .tag-chip.tag-declined{ color:var(--red); border-color:var(--red); }
+  .tag-chip.tag-invited{ color:var(--amber); border-color:var(--amber); }
+  .tag-chip.tag-maybe{ color:var(--accent); border-color:var(--accent); }
   .guests-summary{
     display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;
   }
@@ -483,6 +493,7 @@
     #panel-gasten td input, #panel-gasten td select{ flex:1; min-width:0; }
     #panel-gasten .guest-group-row td{ display:block; padding:10px 12px; }
     #panel-gasten .guest-group-row .group-meta{ display:block; margin-left:24px; margin-top:2px; }
+    #panel-gasten .guest-group-row .row-tags{ float:none; display:flex; flex-wrap:wrap; gap:6px; margin-left:24px; margin-top:6px; }
   }
 
   .timeline-item input[type=time]{
@@ -1124,7 +1135,7 @@ function guestRowHtml(g, indent){
   return `
     <tr class="${indent ? 'guest-subrow' : ''}">
       <td data-label="Naam">${indent ? '<span class="indent-arrow">↳</span>' : ''}<input type="text" value="${escapeAttr(g.name)}" onchange="updateGuestField('${g.id}','name',this.value)"></td>
-      <td data-label="Adres">${indent ? '' : `<input type="text" value="${escapeAttr(g.address||'')}" placeholder="Straat, plaats..." onchange="updateGuestField('${g.id}','address',this.value)">`}</td>
+      <td data-label="Adres"><input type="text" value="${escapeAttr(g.address||'')}" placeholder="Straat, plaats..." onchange="updateGuestField('${g.id}','address',this.value)"></td>
       <td data-label="Aantal"><input type="number" class="guest-count" min="1" value="${g.count||1}" onchange="updateGuestField('${g.id}','count',this.value)"></td>
       <td data-label="Categorie">
         <select onchange="updateGuestField('${g.id}','category',this.value)">
@@ -1149,6 +1160,50 @@ function guestRowHtml(g, indent){
     </tr>
   `;
 }
+function rsvpTagClass(rsvp){
+  return rsvp==='confirmed' ? 'tag-confirmed' : rsvp==='declined' ? 'tag-declined' : rsvp==='invited' ? 'tag-invited' : 'tag-pending';
+}
+// Every guest — whether alone at an address or sharing one with others —
+// shows first as one compact, same-looking summary line. Click it to open
+// the editable fields underneath. That way a single person at an address
+// looks just like every other line instead of suddenly being a full wide
+// row of inputs next to plain summary text.
+function guestSummaryRowHtml(key, addr, members, expanded){
+  const isMulti = members.length > 1;
+  const peopleCount = members.reduce((s,g)=> s + (Number(g.count)||1), 0);
+  let title, meta;
+  if(isMulti){
+    title = escapeHtml(addr);
+    meta = `${members.length} genodigden, ${peopleCount} personen: ${escapeHtml(members.map(m=>m.name).join(', '))}`;
+  } else {
+    const g = members[0];
+    title = escapeHtml(g.name);
+    const bits = [];
+    if(addr) bits.push(escapeHtml(addr));
+    if((Number(g.count)||1) > 1) bits.push(`${g.count} personen`);
+    meta = bits.join(' · ');
+  }
+  let tags = '';
+  if(!isMulti){
+    const g = members[0];
+    const rsvpLabel = (RSVP_OPTIONS.find(o=>o.value===g.rsvp)||RSVP_OPTIONS[0]).label;
+    tags = `
+      <span class="row-tags">
+        <span class="tag-chip ${rsvpTagClass(g.rsvp)}">${rsvpLabel}</span>
+        <span class="tag-chip">${(g.dayPart||'dag')==='avond' ? 'Avond' : 'Hele dag'}</span>
+        ${g.maybe ? '<span class="tag-chip tag-maybe">Misschien</span>' : ''}
+      </span>`;
+  }
+  return `
+    <tr class="guest-group-row" onclick="toggleAddressGroup('${escapeAttr(key)}')">
+      <td colspan="9">
+        <span class="group-toggle">${expanded ? '▾' : '▸'}</span>
+        <b>${title}</b>
+        ${meta ? `<span class="group-meta">${meta}</span>` : ''}
+        ${tags}
+      </td>
+    </tr>`;
+}
 function renderGuests(){
   const body = document.getElementById('guests-body');
   const countEl = document.getElementById('guests-count');
@@ -1162,43 +1217,27 @@ function renderGuests(){
   if(!list.length){
     body.innerHTML = '<tr><td colspan="9" class="empty-state">Nog geen gasten toegevoegd.</td></tr>';
   }else{
-    // group consecutive-by-first-appearance guests that share a non-empty address
+    // Every guest is grouped into a "unit": guests sharing a non-empty
+    // address form one multi-person unit, anyone else (unique/no address)
+    // is a unit of one — all rendered the same way (see guestSummaryRowHtml).
     const groups = {};
     const order = [];
-    const singles = [];
     list.forEach(g=>{
       const addr = (g.address||'').trim();
-      if(addr){
-        if(!groups[addr]){ groups[addr] = []; order.push(addr); }
-        groups[addr].push(g);
-      } else {
-        singles.push(g);
-      }
+      const key = addr ? 'addr:' + addr : 'solo:' + g.id;
+      if(!groups[key]){ groups[key] = { addr, members: [] }; order.push(key); }
+      groups[key].members.push(g);
     });
 
     let html = '';
-    order.forEach(addr=>{
-      const members = groups[addr];
-      if(members.length > 1){
-        const key = addr;
-        const expanded = expandedAddresses.has(key);
-        const peopleCount = members.reduce((s,g)=> s + (Number(g.count)||1), 0);
-        html += `
-          <tr class="guest-group-row" onclick="toggleAddressGroup('${escapeAttr(key)}')">
-            <td colspan="9">
-              <span class="group-toggle">${expanded ? '▾' : '▸'}</span>
-              <b>${escapeHtml(addr)}</b>
-              <span class="group-meta">${members.length} genodigden, ${peopleCount} personen: ${escapeHtml(members.map(m=>m.name).join(', '))}</span>
-            </td>
-          </tr>`;
-        if(expanded){
-          members.forEach(g=>{ html += guestRowHtml(g, true); });
-        }
-      } else {
-        html += guestRowHtml(members[0], false);
+    order.forEach(key=>{
+      const { addr, members } = groups[key];
+      const expanded = expandedAddresses.has(key);
+      html += guestSummaryRowHtml(key, addr, members, expanded);
+      if(expanded){
+        members.forEach(g=>{ html += guestRowHtml(g, true); });
       }
     });
-    singles.forEach(g=>{ html += guestRowHtml(g, false); });
     body.innerHTML = html;
   }
 
